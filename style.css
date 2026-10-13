@@ -249,19 +249,35 @@ body {
 .msg-bubble strong { color: var(--color-text); }
 .msg.user .msg-bubble strong { color: #fff; }
 
+/* Scrollable wrapper for tables inside chat bubbles.
+   Prevents the bubble from widening beyond the viewport. */
+.resp-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: .5rem;
+  /* negative horizontal margin + padding lets the scroll track reach the edges */
+}
+
 /* Inline response table */
 .resp-table {
-  width: 100%;
+  width: max-content;     /* allow natural column widths */
+  min-width: 100%;        /* but fill the wrapper when content is narrow */
   border-collapse: collapse;
   font-size: .8rem;
-  margin-top: .5rem;
 }
 .resp-table th,
 .resp-table td {
   border: 1px solid var(--color-border);
   padding: .35rem .55rem;
   text-align: left;
-  white-space: nowrap;
+  white-space: nowrap;    /* keep short columns compact */
+}
+/* "Rekomendasi" / "Alasan" column: allow wrapping so long sentences don't clip */
+.resp-table td:last-child {
+  white-space: normal;
+  min-width: 180px;
+  max-width: 340px;
+  word-break: break-word;
 }
 .resp-table th {
   background: var(--color-bg);
@@ -286,12 +302,15 @@ body {
   40%           { transform: translateY(-6px); }
 }
 
-/* Quick-suggestion chips */
+/* Quick-suggestion chips — wrap on narrow screens; horizontal scroll fallback */
 .chat-suggestions {
   display: flex;
   flex-wrap: wrap;
   gap: .4rem;
   align-items: center;
+  /* prevent single long chip from causing page scroll */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .suggestions-label {
@@ -580,16 +599,13 @@ body {
   border-bottom: 2px solid var(--color-border);
 }
 
-/* Risk recommendation table (reuses stock-table) */
+/* Risk recommendation table — now wrapped in .table-wrapper which provides
+   the border, radius, shadow, and overflow:hidden. */
 .rec-table {
   width: 100%;
   border-collapse: collapse;
   background: var(--color-surface);
   font-size: .82rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 .rec-table th {
   background: var(--color-bg);
@@ -641,12 +657,144 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 
 /* ============================================================
-   RESPONSIVE TWEAKS
+   RESET CONTROLS
+   Subtle destructive-action buttons placed inline in toolbars.
+   Uses the same btn-secondary base but with a danger tint on hover.
    ============================================================ */
+.btn-danger {
+  background: var(--color-surface);
+  color: var(--color-kritis);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: .38rem .85rem;
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  /* minimum 44 px touch target height */
+  min-height: 44px;
+}
+.btn-danger:hover {
+  background: var(--color-kritis-bg);
+  border-color: var(--color-kritis);
+}
+
+/* Chat panel header row (title + reset chat button) */
+.chat-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+.chat-panel-title {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+/* ============================================================
+   RESPONSIVE TWEAKS
+   Full coverage for phones (360 px) to tablets (1024 px).
+   Goal: no horizontal page scroll at any breakpoint.
+   ============================================================ */
+
+/* Prevent the html/body from ever creating a horizontal scroll */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* ---------- ≤ 640 px (phones) ---------- */
+@media (max-width: 640px) {
+  /* Topbar: tighten padding, allow brand to shrink */
+  .topbar {
+    padding: 0 .75rem;
+    gap: .5rem;
+    height: auto;
+    min-height: var(--topbar-h);
+    flex-wrap: nowrap;    /* keep brand + nav on one line */
+  }
+  .topbar-brand {
+    flex-shrink: 1;
+    min-width: 0;         /* allow ellipsis if needed */
+    gap: .35rem;
+  }
+  .topbar-title {
+    font-size: .9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Nav buttons: compact but still ≥ 44 px touch targets */
+  .topbar-nav {
+    gap: .2rem;
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    padding: .5rem .6rem;
+    font-size: .75rem;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Panels */
+  .panel { padding: .75rem; }
+
+  /* Chat area */
+  .chat-messages {
+    max-height: calc(100vh - var(--topbar-h) - 210px);
+  }
+  /* Bubbles use full available width on small screens */
+  .msg-bubble { max-width: 88%; }
+
+  /* Chips: allow horizontal scrolling when they don't wrap */
+  .chat-suggestions {
+    flex-wrap: nowrap;
+    padding-bottom: .25rem; /* room for scrollbar */
+  }
+  .chip {
+    flex-shrink: 0;       /* prevent chip text from wrapping */
+    min-height: 44px;
+  }
+
+  /* Stock/report panel controls: stack vertically */
+  .stock-header  { flex-direction: column; align-items: flex-start; }
+  .report-header { flex-direction: column; align-items: flex-start; }
+  .stock-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  /* Make all control buttons full-width on very small screens */
+  .stock-filter,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    min-height: 44px;
+  }
+
+  /* Reset-controls row in chat header */
+  .chat-panel-header { flex-wrap: wrap; }
+}
+
+/* ---------- 641 px – 1024 px (tablets) ---------- */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .topbar { padding: 0 1.1rem; }
+  .nav-btn { min-height: 44px; }
+  .chip    { min-height: 40px; }
+  .panel   { padding: 1rem 1.25rem; }
+}
+
+/* ---------- Legacy narrow rule kept for any missed edge cases ---------- */
 @media (max-width: 480px) {
-  .topbar { padding: 0 .9rem; }
-  .topbar-title { font-size: .95rem; }
-  .nav-btn { padding: .38rem .6rem; font-size: .75rem; }
-  .panel { padding: .9rem; }
+  .topbar { padding: 0 .75rem; }
+  .topbar-title { font-size: .88rem; }
+  .nav-btn { padding: .38rem .55rem; font-size: .74rem; }
   .chat-messages { max-height: calc(100vh - var(--topbar-h) - 220px); }
 }

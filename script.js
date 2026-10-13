@@ -316,7 +316,10 @@ function generateReport() {
   if (risky.length === 0) {
     riskyTable = `<p style="color:var(--color-aman);font-weight:600;">${icon('check-circle')} Tidak ada batch berisiko saat ini. Stok dalam kondisi sangat baik!</p>`;
   } else {
+    /* Wrap in table-wrapper so the Laporan panel table scrolls horizontally
+       on narrow screens instead of overflowing the panel. */
     riskyTable = `
+      <div class="table-wrapper">
       <table class="rec-table">
         <thead>
           <tr>
@@ -345,7 +348,8 @@ function generateReport() {
               </tr>`;
           }).join('')}
         </tbody>
-      </table>`;
+      </table>
+      </div>`;
   }
 
   return `
@@ -545,10 +549,10 @@ function fefoResponseFor(nama) {
   }).join('');
 
   return `<p>Urutan FEFO untuk <strong>${escHtml(nama)}</strong> (batch dengan tanggal kedaluwarsa paling dekat dijual <strong>pertama</strong>):</p>
-          <table class="resp-table">
+          <div class="resp-table-wrap"><table class="resp-table">
             <thead><tr><th>Rank</th><th>Batch</th><th>Kedaluwarsa</th><th>Qty</th><th>Status</th></tr></thead>
             <tbody>${rows}</tbody>
-          </table>
+          </table></div>
           <p style="margin-top:.5rem;font-size:.82rem;color:var(--color-muted);">
             Batch rank #1 adalah yang harus dijual <strong>pertama</strong> sesuai prinsip FEFO.</p>`;
 }
@@ -562,10 +566,10 @@ function fefoTableAll() {
     return `<tr><td><strong>${escHtml(i.nama)}</strong></td><td><code>${escHtml(i.batch)}</code></td>
             <td>${fmtDate(i.kadaluarsa)}</td><td>${i.qty}</td><td>${badgeHtml(s)}</td></tr>`;
   }).join('');
-  return `<table class="resp-table">
+  return `<div class="resp-table-wrap"><table class="resp-table">
     <thead><tr><th>Obat</th><th>Batch (Jual Dulu)</th><th>Kedaluwarsa</th><th>Qty</th><th>Status</th></tr></thead>
     <tbody>${rows}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 /** Batches filtered by a single status */
@@ -582,10 +586,10 @@ function batchesByStatus(status, titleHtml, emptyMsg) {
   ).join('');
 
   return `<p>${titleHtml}</p>
-    <table class="resp-table">
+    <div class="resp-table-wrap"><table class="resp-table">
       <thead><tr><th>Obat</th><th>Batch</th><th>Kedaluwarsa</th><th>Qty</th><th>Sisa Hari</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 /** Kritis + Waspada together (for "hampir kedaluwarsa dalam 3 bulan") */
@@ -630,10 +634,10 @@ function batchesAlmostExpiring(maxDays) {
   }).join('');
 
   return `<p>${icon('clock', 'icon-sm')} Berikut obat yang <strong>akan kedaluwarsa dalam ${windowLabel} ke depan</strong> (belum kedaluwarsa, sisa &le; ${maxDays} hari):</p>
-    <table class="resp-table">
+    <div class="resp-table-wrap"><table class="resp-table">
       <thead><tr><th>Obat</th><th>Batch</th><th>Kedaluwarsa</th><th>Qty</th><th>Status</th><th>Sisa Hari</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 /** Recommendations for a single item */
@@ -650,10 +654,10 @@ function rekomendasiFor(nama) {
   }).join('');
 
   return `<p>Rekomendasi untuk <strong>${escHtml(nama)}</strong>:</p>
-    <table class="resp-table">
+    <div class="resp-table-wrap"><table class="resp-table">
       <thead><tr><th>Batch</th><th>Kedaluwarsa</th><th>Status</th><th>Rekomendasi</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 /**
@@ -687,10 +691,10 @@ function rekomendasiAll(filterStatus) {
   }).join('');
 
   return `<p>${icon('lightbulb', 'icon-sm')} Rekomendasi tindakan untuk semua batch${statusLabel}:</p>
-    <table class="resp-table">
+    <div class="resp-table-wrap"><table class="resp-table">
       <thead><tr><th>Obat</th><th>Batch</th><th>Status</th><th>Rekomendasi</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 /** Total stock value breakdown */
@@ -710,10 +714,10 @@ function nilaiStokResponse() {
   ).join('');
 
   return `<p>${icon('wallet', 'icon-sm')} <strong>Total nilai stok saat ini: ${fmtRupiah(total)}</strong> (berdasarkan harga beli)</p>
-    <table class="resp-table">
+    <div class="resp-table-wrap"><table class="resp-table">
       <thead><tr><th>Nama Obat</th><th>Nilai Stok</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 /** Detail for a single named item */
@@ -736,10 +740,10 @@ function itemDetailResponse(nama) {
   }).join('');
 
   return `<p>${icon('file-text', 'icon-sm')} Detail stok untuk <strong>${escHtml(nama)}</strong>:</p>
-    <table class="resp-table">
+    <div class="resp-table-wrap"><table class="resp-table">
       <thead><tr><th>Batch</th><th>Kedaluwarsa</th><th>Qty</th><th>Harga Jual</th><th>Status</th><th>FEFO</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table></div>`;
 }
 
 /** Quick stat snippet embedded in report-triggered chat reply */
@@ -1083,20 +1087,26 @@ function runSelfTest() {
 window.runSelfTest = runSelfTest;
 
 /* ============================================================
-   14. INIT — run on page load
+   14. RESET CONTROLS
    ============================================================ */
-function init() {
-  // Render stock table on first load (hidden, but ready)
-  renderStockTable();
-  renderReport();
 
-  // Greeting message from the agent
+/**
+ * The default/built-in stock data at page-load time.
+ * Captured once after `stockData` is initially declared so
+ * "Reset data" can restore it exactly.
+ */
+const DEFAULT_STOCK_DATA = stockData.map(item => ({ ...item }));
+
+/**
+ * Show the standard greeting message in the chat.
+ * Extracted so both init() and "Hapus percakapan" can call it.
+ */
+function showGreeting() {
   const today = new Date().toLocaleDateString('id-ID', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
 
-  // Count urgent items for the greeting
-  const kritis     = stockData.filter(i => getStatus(i.kadaluarsa) === 'Kritis').length;
+  const kritis      = stockData.filter(i => getStatus(i.kadaluarsa) === 'Kritis').length;
   const kedaluwarsa = stockData.filter(i => getStatus(i.kadaluarsa) === 'Kedaluwarsa').length;
 
   let urgentNote = '';
@@ -1109,6 +1119,47 @@ function init() {
     ${urgentNote ? `<p>${icon('bell', 'icon-sm')} <strong>Perhatian hari ini:</strong></p><ul>${urgentNote}</ul>` : `<p>${icon('check-circle', 'icon-sm')} Tidak ada peringatan mendesak hari ini.</p>`}
     <p>Silakan ketik pertanyaan Anda atau klik salah satu tombol saran di bawah.</p>
   `);
+}
+
+/* "Hapus percakapan" — clear chat history and show greeting again */
+document.getElementById('clearChatBtn').addEventListener('click', () => {
+  chatMessages.innerHTML = '';   // remove all bubbles
+  showGreeting();                // re-show welcome message
+  chatInput.focus();
+});
+
+/* "Reset data" — restore built-in dummy stock after confirmation */
+document.getElementById('resetDataBtn').addEventListener('click', () => {
+  const confirmed = window.confirm(
+    'Reset data stok ke data bawaan?\n\n' +
+    'Semua data yang diimpor dari CSV akan dihapus dan stok akan kembali ke data demo awal.'
+  );
+  if (!confirmed) return;
+
+  // Restore the original built-in data (shallow-copy each item to avoid mutation)
+  stockData = DEFAULT_STOCK_DATA.map(item => ({ ...item }));
+
+  // Re-render affected panels
+  renderStockTable(stockFilter.value);
+  renderReport();
+
+  // Notify the user in the chat
+  appendMessage('agent',
+    `<p>${icon('rotate-ccw', 'icon-sm')} Data stok telah dikembalikan ke data bawaan. ` +
+    `Semua data impor CSV telah dihapus.</p>`
+  );
+});
+
+/* ============================================================
+   15. INIT — run on page load
+   ============================================================ */
+function init() {
+  // Render stock table and report on first load (hidden panels, but ready)
+  renderStockTable();
+  renderReport();
+
+  // Show the greeting message
+  showGreeting();
 }
 
 init();

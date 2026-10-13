@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PharmaStock Advisor</title>
+  <!-- Inline SVG favicon (pill icon) — prevents 404 in browser console -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.5 3.5a5 5 0 0 1 7.07 7.07L12 16.14 4.93 9.07a5 5 0 0 1 5.57-5.57Z'/%3E%3Cline x1='12' y1='10.5' x2='17.5' y2='16'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -209,6 +211,18 @@
     <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="20 6 9 17 4 12"/>
     </symbol>
+
+    <!-- message-x: Hapus percakapan -->
+    <symbol id="icon-message-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      <line x1="9" y1="10" x2="15" y2="10"/>
+    </symbol>
+
+    <!-- rotate-ccw: Reset data (restore defaults) -->
+    <symbol id="icon-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="1 4 1 10 7 10"/>
+      <path d="M3.51 15a9 9 0 1 0 .49-4.95L1 10"/>
+    </symbol>
   </svg>
 
   <!-- ===== TOP NAVIGATION BAR ===== -->
@@ -243,6 +257,18 @@
     <!-- ==================== PANEL: CHAT ==================== -->
     <section id="panel-chat" class="panel active" aria-label="Panel Chat">
       <div class="chat-wrapper">
+
+        <!-- Chat panel header: label + "Hapus percakapan" reset control -->
+        <div class="chat-panel-header">
+          <span class="chat-panel-title">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-message-circle"/></svg>
+            Percakapan
+          </span>
+          <button class="btn-danger" id="clearChatBtn" aria-label="Hapus percakapan dan tampilkan salam ulang">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-message-x"/></svg>
+            Hapus percakapan
+          </button>
+        </div>
 
         <!-- Chat message history -->
         <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-label="Riwayat percakapan">
@@ -332,6 +358,12 @@
           <button class="btn-secondary btn-icon-text" id="pasteCsvBtn">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clipboard"/></svg>
             Tempel CSV
+          </button>
+
+          <!-- Reset data: restores built-in dummy stock, removes any imported CSV -->
+          <button class="btn-danger btn-icon-text" id="resetDataBtn" aria-label="Hapus data impor dan pulihkan data bawaan">
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-rotate-ccw"/></svg>
+            Reset data
           </button>
         </div>
       </div>
