@@ -82,7 +82,7 @@ Project dikembangkan dengan prompt 3 layer (Role & Context, Task & Requirements,
 | 1 | - | Prompt awal, menghasilkan aplikasi dengan fitur utama |
 | 2 | Layer 2 (Task & Requirements) | Memperbaiki pemahaman pertanyaan agent (prioritas intent, pencocokan kata, rentang "dalam N bulan") |
 | 3 | Layer 3 (Constraints & Output) | Mengganti emoji dengan ikon SVG yang konsisten dan profesional |
-
+| 4 | Layer 3 dan Layer 2 | Tabel rekomendasi tidak lagi terpotong, favicon ditambahkan, tampilan responsif untuk HP dan tablet, serta tombol "Hapus percakapan" dan "Reset data" |
 ## Rencana Pengembangan
 
 - Integrasi dengan sistem POS apotek agar data stok terbaca otomatis.
