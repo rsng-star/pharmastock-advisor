@@ -135,12 +135,18 @@ function statusClass(status) {
 }
 
 /**
- * Render a status marker: small square + status word in status color.
- * Shape and text together convey status without relying on color alone.
+ * Render a status <span> badge with an inline SVG icon.
+ * Icon + text together convey status without relying on color alone.
  */
 function badgeHtml(status) {
-  const cls = statusClass(status);
-  return `<span class="status-marker sm-${cls}" role="img" aria-label="Status: ${status}"><span class="sq" aria-hidden="true"></span>${status}</span>`;
+  const iconMap = {
+    Aman:        'check-circle',
+    Waspada:     'alert-triangle',
+    Kritis:      'alert-octagon',
+    Kedaluwarsa: 'x-circle',
+  };
+  const ic = iconMap[status] ? icon(iconMap[status], 'icon-sm') : '';
+  return `<span class="status-badge badge-${statusClass(status)}">${ic} ${status}</span>`;
 }
 
 /* ============================================================
@@ -229,18 +235,18 @@ function renderStockTable(filter = 'all') {
   stockTableBody.innerHTML = filtered.map(item => {
     const status    = getStatus(item.kadaluarsa);
     const nilaiStok = item.qty * item.hargaBeli;
-    const rankCls   = item.fefoRank === 1 ? 'fefo-rank-1' : 'fefo-rank-other';
+    const rankClass = item.fefoRank <= 2 ? `fefo-${item.fefoRank}` : '';
     return `
       <tr>
-        <td>${item.fefoRank === 1 ? `<strong>${escHtml(item.nama)}</strong>` : escHtml(item.nama)}</td>
-        <td><span class="batch-code">${escHtml(item.batch)}</span></td>
-        <td class="date-cell">${fmtDate(item.kadaluarsa)}</td>
-        <td class="num-cell">${item.qty.toLocaleString('id-ID')}</td>
-        <td class="num-cell">${fmtRupiah(item.hargaBeli)}</td>
-        <td class="num-cell">${fmtRupiah(item.hargaJual)}</td>
-        <td class="num-cell">${fmtRupiah(nilaiStok)}</td>
+        <td><strong>${escHtml(item.nama)}</strong></td>
+        <td><code>${escHtml(item.batch)}</code></td>
+        <td>${fmtDate(item.kadaluarsa)}</td>
+        <td>${item.qty.toLocaleString('id-ID')}</td>
+        <td>${fmtRupiah(item.hargaBeli)}</td>
+        <td>${fmtRupiah(item.hargaJual)}</td>
+        <td>${fmtRupiah(nilaiStok)}</td>
         <td>${badgeHtml(status)}</td>
-        <td><span class="${rankCls}" title="FEFO rank untuk ${escHtml(item.nama)}">${item.fefoRank}</span></td>
+        <td><span class="fefo-badge ${rankClass}" title="FEFO rank untuk ${escHtml(item.nama)}">${item.fefoRank}</span></td>
       </tr>`;
   }).join('');
 }
@@ -262,9 +268,7 @@ function generateReport() {
     totalNilai += item.qty * item.hargaBeli;
   });
 
-  const total = annotated.length;
-
-  // Risky batches grouped by action category
+  // Risky batches: Waspada, Kritis, Kedaluwarsa — sorted worst-first
   const statusOrder = { Kedaluwarsa: 0, Kritis: 1, Waspada: 2 };
   const risky = annotated
     .filter(i => getStatus(i.kadaluarsa) !== 'Aman')
@@ -278,216 +282,259 @@ function generateReport() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
-  // ── Summary sentence ──
-  const tarikCount   = risky.filter(i => getStatus(i.kadaluarsa) === 'Kedaluwarsa').length;
-  const diskonCount  = risky.filter(i => {
-    const s = getStatus(i.kadaluarsa);
-    const d = daysUntil(i.kadaluarsa);
-    return s === 'Kritis' && d < 30;
-  }).length;
-  const pantauCount  = risky.filter(i => {
-    const s = getStatus(i.kadaluarsa);
-    const d = daysUntil(i.kadaluarsa);
-    return s === 'Waspada' || (s === 'Kritis' && d >= 30);
-  }).length;
+  /* ── Stat cards
+     Each numeric card gets data-count so the JS count-up animation can
+     target it. The currency card (s-nilai) keeps its formatted text and
+     is not animated (non-integer value).
+  ── */
+  const statCards = `
+    <div class="stat-grid">
+      <div class="stat-card s-total">
+        <div class="stat-label">${icon('layers', 'icon-sm')} Total Batch</div>
+        <div class="stat-value" data-count="${annotated.length}">0</div>
+      </div>
+      <div class="stat-card s-aman">
+        <div class="stat-label">${icon('check-circle', 'icon-sm')} Aman</div>
+        <div class="stat-value" data-count="${counts.Aman}">0</div>
+      </div>
+      <div class="stat-card s-waspada">
+        <div class="stat-label">${icon('alert-triangle', 'icon-sm')} Waspada</div>
+        <div class="stat-value" data-count="${counts.Waspada}">0</div>
+      </div>
+      <div class="stat-card s-kritis">
+        <div class="stat-label">${icon('alert-octagon', 'icon-sm')} Kritis</div>
+        <div class="stat-value" data-count="${counts.Kritis}">0</div>
+      </div>
+      <div class="stat-card s-kedaluwarsa">
+        <div class="stat-label">${icon('x-circle', 'icon-sm')} Kedaluwarsa</div>
+        <div class="stat-value" data-count="${counts.Kedaluwarsa}">0</div>
+      </div>
+      <div class="stat-card s-nilai">
+        <div class="stat-label">${icon('wallet', 'icon-sm')} Total Nilai Stok</div>
+        <div class="stat-value">${fmtRupiah(totalNilai)}</div>
+      </div>
+    </div>`;
 
-  let summaryParts = [];
-  if (tarikCount > 0)   summaryParts.push(`${tarikCount} batch harus ditarik dari rak`);
-  if (diskonCount > 0)  summaryParts.push(`${diskonCount} batch perlu diskon atau retur`);
-  if (pantauCount > 0)  summaryParts.push(`${pantauCount} batch perlu dipantau`);
-  const summaryText = summaryParts.length > 0
-    ? summaryParts.join(', ') + '.'
-    : 'Semua batch dalam kondisi aman.';
+  /* ── Animated SVG donut chart (pure SVG, no library)
+     Segments represent Aman / Waspada / Kritis / Kedaluwarsa counts.
+     Each <circle> starts with stroke-dashoffset = full circumference so
+     it begins invisible; JS then transitions it to the correct offset.
+     accessibility: role="img" + aria-label on the <svg>, plus a <title>
+     and a visible legend so the chart is never the only data source.
+  ── */
+  const donutHtml = buildDonutChart(counts, annotated.length);
 
-  // ── Stacked horizontal bar ──
-  const barHtml = buildStatusBar(counts, total);
-
-  // ── Grouped risky table ──
-  const riskyTableHtml = buildGroupedRiskyTable(risky);
+  // Build risky table HTML
+  let riskyTable = '';
+  if (risky.length === 0) {
+    riskyTable = `<p style="color:var(--c-aman);font-weight:600;">${icon('check-circle')} Tidak ada batch berisiko saat ini. Stok dalam kondisi sangat baik!</p>`;
+  } else {
+    /* Wrap in table-wrapper so the Laporan panel table scrolls horizontally
+       on narrow screens instead of overflowing the panel. */
+    riskyTable = `
+      <div class="table-wrapper">
+      <table class="rec-table">
+        <thead>
+          <tr>
+            <th>Nama Obat</th>
+            <th>Batch</th>
+            <th>Kedaluwarsa</th>
+            <th>Qty</th>
+            <th>Status</th>
+            <th>Rekomendasi Tindakan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${risky.map(item => {
+            const rec = getRecommendation(item);
+            return `
+              <tr>
+                <td><strong>${escHtml(item.nama)}</strong></td>
+                <td><code>${escHtml(item.batch)}</code></td>
+                <td>${fmtDate(item.kadaluarsa)}</td>
+                <td>${item.qty}</td>
+                <td>${badgeHtml(getStatus(item.kadaluarsa))}</td>
+                <td>
+                  <div class="rec-action">${rec.action}</div>
+                  <div class="rec-reason">${escHtml(rec.reason)}</div>
+                </td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      </div>`;
+  }
 
   return `
-    <div class="report-title-row">
-      <h2 style="font-size:var(--fs-xl);font-weight:700;color:var(--c-ink);line-height:1.2;">Laporan harian stok</h2>
-      <div class="report-meta-nums">
-        <div class="report-meta-num">
-          <span class="meta-label">Total batch</span>
-          <span class="meta-value">${total}</span>
-        </div>
-        <div class="report-meta-num">
-          <span class="meta-label">Nilai stok</span>
-          <span class="meta-value">${fmtRupiah(totalNilai)}</span>
-        </div>
-      </div>
+    <p style="font-size:.83rem;color:var(--c-muted);margin-bottom:.9rem;display:flex;align-items:center;gap:.35rem;">
+      ${icon('calendar', 'icon-sm')} Dibuat otomatis pada: <strong>${today}</strong>
+    </p>
+    ${statCards}
+    ${donutHtml}
+    <div class="report-section-title">
+      ${icon('bar-chart', 'icon-sm')} Ringkasan Batch Berisiko &amp; Rekomendasi Tindakan
     </div>
-    <p class="report-date">Dibuat otomatis pada: ${today}</p>
-    <p class="report-summary">${summaryText}</p>
-    ${barHtml}
-    ${riskyTableHtml}`;
+    ${riskyTable}`;
 }
 
 /* ============================================================
-   6b. STATUS BAR BUILDER
-   Full-width stacked horizontal bar with counts and percentages.
-   Segments start at width:0 and animate to target via CSS transition
-   (triggered by JS after render).
+   6b. DONUT CHART BUILDER
+   Pure SVG donut — no canvas, no library.
+   The chart animates via stroke-dashoffset transitions triggered
+   by animateReport() after the HTML is inserted into the DOM.
    ============================================================ */
 
 /**
- * Build the stacked bar + legend HTML.
+ * Build the SVG donut chart + legend HTML string.
+ * Segments start at full-circumference dashoffset (invisible); JS
+ * transitions them to their target values after render.
+ *
  * @param {{ Aman:number, Waspada:number, Kritis:number, Kedaluwarsa:number }} counts
- * @param {number} total
- * @returns {string}
+ * @param {number} total - total batch count (annotated.length)
+ * @returns {string} HTML string for the donut section
  */
-function buildStatusBar(counts, total) {
+function buildDonutChart(counts, total) {
+  const R   = 54;                          // circle radius
+  const CX  = 70; const CY = 70;          // centre of 140×140 viewBox
+  const CIRC = 2 * Math.PI * R;           // full circumference ≈ 339.3
+
+  /* Segment definitions: order, colour, label */
   const segments = [
-    { key: 'Aman',        cls: 'aman',        label: 'Aman'        },
-    { key: 'Waspada',     cls: 'waspada',     label: 'Waspada'     },
-    { key: 'Kritis',      cls: 'kritis',      label: 'Kritis'      },
-    { key: 'Kedaluwarsa', cls: 'kedaluwarsa', label: 'Kedaluwarsa' },
+    { key: 'Aman',        color: '#16a34a', label: 'Aman'        },
+    { key: 'Waspada',     color: '#ca8a04', label: 'Waspada'     },
+    { key: 'Kritis',      color: '#dc2626', label: 'Kritis'      },
+    { key: 'Kedaluwarsa', color: '#6b21a8', label: 'Kedaluwarsa' },
   ];
 
-  const bars = segments.map(seg => {
-    const count = counts[seg.key] || 0;
-    const pct   = total > 0 ? (count / total * 100).toFixed(1) : 0;
-    if (count === 0) return '';
-    return `<div class="bar-seg seg-${seg.cls}"
-      data-target-pct="${pct}"
-      aria-label="${seg.label}: ${count} batch (${pct}%)"
-      style="width:0"></div>`;
-  }).join('');
+  /* Build circle elements; track cumulative rotation offset */
+  let offset = 0; // degrees, starting from 12 o'clock (−90°)
+  const circles = segments.map(seg => {
+    const count   = counts[seg.key] || 0;
+    const frac    = total > 0 ? count / total : 0;
+    const dash    = frac * CIRC;
+    const gap     = CIRC - dash;
+    /* Rotation: SVG circles start at 3 o'clock; rotate by -90° for 12 o'clock,
+       then add cumulative offset for sequential segments. */
+    const rotate  = -90 + offset;
+    offset       += frac * 360;
 
-  const legendItems = segments.map(seg => {
+    return `<circle
+      class="donut-segment"
+      cx="${CX}" cy="${CY}" r="${R}"
+      fill="none"
+      stroke="${seg.color}"
+      stroke-width="14"
+      stroke-linecap="butt"
+      stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
+      stroke-dashoffset="${CIRC.toFixed(2)}"
+      data-target-offset="${(CIRC - dash).toFixed(2)}"
+      transform="rotate(${rotate.toFixed(2)}, ${CX}, ${CY})"
+      aria-hidden="true"
+    />`;
+  }).join('\n    ');
+
+  /* Legend rows */
+  const legendRows = segments.map(seg => {
     const count = counts[seg.key] || 0;
     const pct   = total > 0 ? Math.round(count / total * 100) : 0;
     return `
-      <div class="bar-legend-item">
-        <span class="leg-sq sq-${seg.cls}" aria-hidden="true"></span>
+      <div class="legend-item">
+        <span class="legend-dot" style="background:${seg.color}" aria-hidden="true"></span>
         <span>${seg.label}</span>
-        <span class="leg-count">${count}</span>
-        <span class="leg-pct">(${pct}%)</span>
+        <span class="legend-count">${count} <small style="font-weight:400;color:var(--c-muted)">(${pct}%)</small></span>
       </div>`;
   }).join('');
 
-  const ariaLabel = `Komposisi status: Aman ${counts.Aman}, Waspada ${counts.Waspada}, Kritis ${counts.Kritis}, Kedaluwarsa ${counts.Kedaluwarsa} dari ${total} batch.`;
+  const ariaLabel = `Komposisi status stok: Aman ${counts.Aman}, Waspada ${counts.Waspada}, Kritis ${counts.Kritis}, Kedaluwarsa ${counts.Kedaluwarsa}, dari total ${total} batch.`;
 
   return `
-    <div class="status-bar-section">
-      <div class="status-bar-wrap" role="img" aria-label="${ariaLabel}">${bars}</div>
-      <div class="bar-legend" aria-label="Keterangan status">${legendItems}</div>
+    <div class="donut-section">
+      <div class="donut-chart-wrap">
+        <svg class="donut-svg" width="140" height="140" viewBox="0 0 140 140"
+             role="img" aria-label="${ariaLabel}">
+          <title>${ariaLabel}</title>
+          <!-- Track ring (background) -->
+          <circle cx="${CX}" cy="${CY}" r="${R}"
+            fill="none" stroke="var(--c-border)" stroke-width="14"
+            aria-hidden="true"/>
+          ${circles}
+          <!-- Centre label: total count -->
+          <text x="${CX}" y="${CY - 6}" text-anchor="middle"
+            font-size="22" font-weight="800"
+            fill="var(--c-text)" font-family="inherit"
+            aria-hidden="true">${total}</text>
+          <text x="${CX}" y="${CY + 13}" text-anchor="middle"
+            font-size="9.5" fill="var(--c-muted)" font-family="inherit"
+            aria-hidden="true">batch</text>
+        </svg>
+      </div>
+      <div class="donut-legend" aria-label="Legenda komposisi status">
+        <div class="donut-legend-title">Komposisi Status</div>
+        ${legendRows}
+      </div>
     </div>`;
 }
 
 /* ============================================================
-   6c. GROUPED RISKY TABLE BUILDER
-   Three sections: "Tarik dari rak", "Diskon atau retur", "Pantau".
-   Short reason text per row.
+   6c. REPORT ANIMATIONS
+   Called by renderReport() after HTML is injected into the DOM.
+   Respects prefers-reduced-motion: if reduced, values are set
+   instantly without transitions.
    ============================================================ */
 
 /**
- * Build grouped risky-batch table HTML.
- * @param {Array} risky - sorted array of risky batch items
- * @returns {string}
- */
-function buildGroupedRiskyTable(risky) {
-  if (risky.length === 0) {
-    return `<p class="report-group-heading" style="color:var(--c-aman)">Tidak ada batch berisiko saat ini. Stok dalam kondisi baik.</p>`;
-  }
-
-  // Group by action
-  const groups = {
-    tarik:   [],
-    diskon:  [],
-    pantau:  [],
-  };
-
-  risky.forEach(item => {
-    const s = getStatus(item.kadaluarsa);
-    const d = daysUntil(item.kadaluarsa);
-    if (s === 'Kedaluwarsa') {
-      groups.tarik.push(item);
-    } else if (s === 'Kritis' && d < 30) {
-      groups.diskon.push(item);
-    } else {
-      groups.pantau.push(item);
-    }
-  });
-
-  /**
-   * Short reason text per item (one line, no boilerplate).
-   */
-  function shortReason(item) {
-    const s = getStatus(item.kadaluarsa);
-    const d = daysUntil(item.kadaluarsa);
-    if (s === 'Kedaluwarsa') return `Lewat ${Math.abs(d)} hari`;
-    if (s === 'Kritis')      return `Sisa ${d} hari`;
-    if (s === 'Waspada')     return `Sisa ${d} hari`;
-    return '';
-  }
-
-  /**
-   * Render a single group section.
-   */
-  function renderGroup(heading, items, isFirst) {
-    if (items.length === 0) return '';
-    const rows = items.map(item => {
-      const d = daysUntil(item.kadaluarsa);
-      const sisa = d < 0 ? `${Math.abs(d)} hari lalu` : `${d} hari lagi`;
-      return `
-        <tr>
-          <td>${escHtml(item.nama)}</td>
-          <td><span class="batch-code">${escHtml(item.batch)}</span></td>
-          <td class="date-cell">${fmtDate(item.kadaluarsa)}</td>
-          <td class="num-cell">${item.qty.toLocaleString('id-ID')}</td>
-          <td class="num-cell">${sisa}</td>
-        </tr>`;
-    }).join('');
-    return `
-      <h3 class="report-group-heading${isFirst ? ' report-group-heading--first' : ''}">${heading}</h3>
-      <div class="table-wrapper">
-        <table class="rec-table">
-          <thead>
-            <tr>
-              <th>Obat</th>
-              <th>Batch</th>
-              <th>Kedaluwarsa</th>
-              <th>Qty</th>
-              <th>Sisa</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`;
-  }
-
-  return renderGroup('Tarik dari rak', groups.tarik, true)
-       + renderGroup('Diskon atau retur', groups.diskon, groups.tarik.length === 0)
-       + renderGroup('Pantau', groups.pantau, groups.tarik.length === 0 && groups.diskon.length === 0);
-}
-
-/* ============================================================
-   6d. REPORT ANIMATIONS
-   Animates status bar segments from width:0 to their target percentage.
-   300ms ease-out. Respects prefers-reduced-motion.
-   ============================================================ */
-
-/**
- * Animate the stacked status bar segments.
- * Must be called AFTER the report HTML is in the DOM.
+ * Animate stat cards (count-up) and donut segments (stroke-dashoffset).
+ * Must be called AFTER the report HTML has been inserted into the DOM.
  */
 function animateReport() {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ── Bar segments: grow from zero width ── */
-  const segs = document.querySelectorAll('#reportContent .bar-seg');
-  segs.forEach(seg => {
-    const targetPct = parseFloat(seg.dataset.targetPct) || 0;
+  /* ── Stat cards: staggered entrance + count-up ── */
+  const cards = document.querySelectorAll('#reportContent .stat-card');
+  cards.forEach((card, i) => {
     if (reduced) {
-      seg.style.width = targetPct + '%';
-    } else {
-      // Force a layout flush so the initial width:0 is painted first
-      seg.getBoundingClientRect();
-      seg.style.width = targetPct + '%';
+      /* Skip animation: show immediately at final value */
+      card.classList.add('visible');
+      const el = card.querySelector('[data-count]');
+      if (el) el.textContent = el.dataset.count;
+      return;
     }
+
+    /* Stagger entrance by 50 ms per card */
+    setTimeout(() => {
+      card.classList.add('visible');
+      /* Count-up: ramp from 0 to target over 600 ms */
+      const el = card.querySelector('[data-count]');
+      if (!el) return;
+      const target = parseInt(el.dataset.count, 10);
+      if (isNaN(target) || target === 0) { el.textContent = '0'; return; }
+      const duration = 600;
+      const start    = performance.now();
+      const tick = now => {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        /* ease-out quad */
+        const eased = 1 - (1 - progress) * (1 - progress);
+        el.textContent = Math.round(eased * target);
+        if (progress < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, i * 50);
+  });
+
+  /* ── Donut segments: stroke-dashoffset transition ── */
+  const segments = document.querySelectorAll('#reportContent .donut-segment');
+  segments.forEach((seg, i) => {
+    const targetOffset = parseFloat(seg.dataset.targetOffset);
+    if (reduced) {
+      seg.style.strokeDashoffset = targetOffset;
+      return;
+    }
+    /* Stagger slightly so segments appear to draw in sequence */
+    const delay = 80 + i * 60;
+    setTimeout(() => {
+      seg.style.strokeDashoffset = targetOffset;
+    }, delay);
   });
 }
 
@@ -681,7 +728,7 @@ function fefoResponseFor(nama) {
             <thead><tr><th>Rank</th><th>Batch</th><th>Kedaluwarsa</th><th>Qty</th><th>Status</th></tr></thead>
             <tbody>${rows}</tbody>
           </table></div>
-          <p style="margin-top:.5rem;font-size:.82rem;color:var(--c-muted);">
+          <p style="margin-top:.5rem;font-size:.82rem;color:var(--color-muted);">
             Batch rank #1 adalah yang harus dijual <strong>pertama</strong> sesuai prinsip FEFO.</p>`;
 }
 
@@ -778,7 +825,7 @@ function rekomendasiFor(nama) {
     return `<tr><td><code>${escHtml(i.batch)}</code></td>
             <td>${fmtDate(i.kadaluarsa)}</td>
             <td>${badgeHtml(getStatus(i.kadaluarsa))}</td>
-            <td><strong>${rec.action}</strong><br><small style="color:var(--c-muted)">${escHtml(rec.reason)}</small></td></tr>`;
+            <td><strong>${rec.action}</strong><br><small style="color:var(--color-muted)">${escHtml(rec.reason)}</small></td></tr>`;
   }).join('');
 
   return `<p>Rekomendasi untuk <strong>${escHtml(nama)}</strong>:</p>
@@ -814,7 +861,7 @@ function rekomendasiAll(filterStatus) {
       <td><strong>${escHtml(i.nama)}</strong></td>
       <td><code>${escHtml(i.batch)}</code></td>
       <td>${badgeHtml(getStatus(i.kadaluarsa))}</td>
-      <td><strong>${rec.action}</strong><br><small style="color:var(--c-muted)">${escHtml(rec.reason)}</small></td>
+      <td><strong>${rec.action}</strong><br><small style="color:var(--color-muted)">${escHtml(rec.reason)}</small></td>
     </tr>`;
   }).join('');
 
@@ -930,11 +977,16 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-/** Append a bubble to the chat. No avatars per design spec. */
+/** Append a bubble to the chat. */
 function appendMessage(role, htmlContent) {
+  const isAgent   = role === 'agent';
+  const avatarSvg = isAgent ? icon('bot') : icon('user');
+
   const div = document.createElement('div');
   div.className = `msg ${role}`;
-  div.innerHTML = `<div class="msg-bubble">${htmlContent}</div>`;
+  div.innerHTML = `
+    <div class="msg-avatar" aria-hidden="true">${avatarSvg}</div>
+    <div class="msg-bubble">${htmlContent}</div>`;
 
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -1237,13 +1289,14 @@ function showGreeting() {
   const kedaluwarsa = stockData.filter(i => getStatus(i.kadaluarsa) === 'Kedaluwarsa').length;
 
   let urgentNote = '';
-  if (kedaluwarsa > 0) urgentNote += `<li><strong>${kedaluwarsa} batch sudah kedaluwarsa</strong> — perlu tindakan segera.</li>`;
-  if (kritis > 0)      urgentNote += `<li><strong>${kritis} batch berstatus kritis</strong> — kedaluwarsa dalam kurang dari 3 bulan.</li>`;
+  if (kedaluwarsa > 0) urgentNote += `<li>${icon('ban', 'icon-sm')} <strong>${kedaluwarsa} batch sudah kedaluwarsa</strong> — perlu tindakan segera!</li>`;
+  if (kritis > 0)      urgentNote += `<li>${icon('alert-octagon', 'icon-sm')} <strong>${kritis} batch berstatus Kritis</strong> — kedaluwarsa dalam &lt;3 bulan.</li>`;
 
   appendMessage('agent', `
-    <p>Selamat datang di <strong>PharmaStock Advisor</strong>. Hari ini, <em>${today}</em>.</p>
-    ${urgentNote ? `<p>Perhatian hari ini:</p><ul>${urgentNote}</ul>` : `<p>Tidak ada peringatan mendesak hari ini.</p>`}
-    <p>Silakan ketik pertanyaan Anda atau pilih salah satu topik di bawah.</p>
+    <p>Selamat datang di <strong>PharmaStock Advisor</strong>!</p>
+    <p>Hari ini, <em>${today}</em>. Saya siap membantu Anda mengelola stok obat menggunakan prinsip <strong>FEFO</strong> (First Expired, First Out).</p>
+    ${urgentNote ? `<p>${icon('bell', 'icon-sm')} <strong>Perhatian hari ini:</strong></p><ul>${urgentNote}</ul>` : `<p>${icon('check-circle', 'icon-sm')} Tidak ada peringatan mendesak hari ini.</p>`}
+    <p>Silakan ketik pertanyaan Anda atau klik salah satu tombol saran di bawah.</p>
   `);
 }
 
