@@ -4,8 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PharmaStock Advisor</title>
-  <!-- Inline SVG favicon (pill icon) — prevents 404 in browser console -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.5 3.5a5 5 0 0 1 7.07 7.07L12 16.14 4.93 9.07a5 5 0 0 1 5.57-5.57Z'/%3E%3Cline x1='12' y1='10.5' x2='17.5' y2='16'/%3E%3C/svg%3E" />
+  <!-- Inline SVG favicon (pill icon, ink) — prevents 404 in browser console -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316191A' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.5 3.5a5 5 0 0 1 7.07 7.07L12 16.14 4.93 9.07a5 5 0 0 1 5.57-5.57Z'/%3E%3Cline x1='12' y1='10.5' x2='17.5' y2='16'/%3E%3C/svg%3E" />
+  <!-- IBM Plex Sans + Mono from Google Fonts — system fallback in CSS if unavailable -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -236,18 +240,9 @@
       <span class="topbar-sub">Asisten Stok Apotek Berbasis FEFO</span>
     </div>
     <nav class="topbar-nav" aria-label="Navigasi panel">
-      <button class="nav-btn active" data-panel="chat">
-        <svg class="icon" aria-hidden="true"><use href="#icon-message-circle"/></svg>
-        Chat
-      </button>
-      <button class="nav-btn" data-panel="stock">
-        <svg class="icon" aria-hidden="true"><use href="#icon-package"/></svg>
-        Stok
-      </button>
-      <button class="nav-btn" data-panel="report">
-        <svg class="icon" aria-hidden="true"><use href="#icon-file-text"/></svg>
-        Laporan
-      </button>
+      <button class="nav-btn active" data-panel="chat">Chat</button>
+      <button class="nav-btn" data-panel="stock">Stok</button>
+      <button class="nav-btn" data-panel="report">Laporan</button>
     </nav>
   </header>
 
@@ -260,10 +255,7 @@
 
         <!-- Chat panel header: label + "Hapus percakapan" reset control -->
         <div class="chat-panel-header">
-          <span class="chat-panel-title">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-message-circle"/></svg>
-            Percakapan
-          </span>
+          <span class="chat-panel-title">Percakapan</span>
           <button class="btn-danger" id="clearChatBtn" aria-label="Hapus percakapan dan tampilkan salam ulang">
             <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-message-x"/></svg>
             Hapus percakapan
@@ -279,40 +271,13 @@
         <div class="chat-suggestions" id="chatSuggestions" aria-label="Pertanyaan cepat">
           <span class="suggestions-label">Coba tanyakan:</span>
 
-          <button class="chip" data-q="Obat apa yang hampir kedaluwarsa dalam 3 bulan?">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clock"/></svg>
-            Hampir kedaluwarsa
-          </button>
-
-          <button class="chip" data-q="Buat laporan harian">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-file-text"/></svg>
-            Laporan harian
-          </button>
-
-          <button class="chip" data-q="Batch mana yang dijual dulu untuk Amoxicillin?">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-list-ordered"/></svg>
-            Urutan FEFO
-          </button>
-
-          <button class="chip" data-q="Obat apa yang sudah kedaluwarsa?">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-x-circle"/></svg>
-            Sudah kedaluwarsa
-          </button>
-
-          <button class="chip" data-q="Tampilkan semua obat berstatus Kritis">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-alert-octagon"/></svg>
-            Status Kritis
-          </button>
-
-          <button class="chip" data-q="Berapa total nilai stok saya?">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-wallet"/></svg>
-            Nilai stok
-          </button>
-
-          <button class="chip" data-q="Apa rekomendasi untuk batch Waspada?">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-lightbulb"/></svg>
-            Rekomendasi
-          </button>
+          <button class="chip" data-q="Obat apa yang hampir kedaluwarsa dalam 3 bulan?">Hampir kedaluwarsa</button>
+          <button class="chip" data-q="Buat laporan harian">Laporan harian</button>
+          <button class="chip" data-q="Batch mana yang dijual dulu untuk Amoxicillin?">Urutan FEFO</button>
+          <button class="chip" data-q="Obat apa yang sudah kedaluwarsa?">Sudah kedaluwarsa</button>
+          <button class="chip" data-q="Tampilkan semua obat berstatus Kritis">Status kritis</button>
+          <button class="chip" data-q="Berapa total nilai stok saya?">Nilai stok</button>
+          <button class="chip" data-q="Apa rekomendasi untuk batch Waspada?">Rekomendasi</button>
         </div>
 
         <!-- Chat input area -->
@@ -334,10 +299,7 @@
     <!-- ==================== PANEL: STOK ==================== -->
     <section id="panel-stock" class="panel" aria-label="Panel Stok">
       <div class="stock-header">
-        <h2 class="section-title">
-          <svg class="icon icon-md" aria-hidden="true"><use href="#icon-package"/></svg>
-          Data Stok Obat
-        </h2>
+        <h2 class="section-title">Data stok obat</h2>
         <div class="stock-controls">
           <!-- Status filter — text options, no emoji needed in <select> -->
           <select id="stockFilter" class="stock-filter" aria-label="Filter status">
@@ -371,10 +333,7 @@
       <!-- CSV paste modal -->
       <div id="csvModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="csvModalTitle">
         <div class="modal-box">
-          <h3 id="csvModalTitle">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-clipboard"/></svg>
-            Tempel Data CSV
-          </h3>
+            <h3 id="csvModalTitle">Tempel data CSV</h3>
           <p class="modal-hint">Format: <code>nama,batch,kadaluarsa(YYYY-MM-DD),qty,harga_beli,harga_jual</code></p>
           <textarea id="csvPasteArea" rows="10" placeholder="nama_obat,BATCH001,2025-08-01,100,5000,8000&#10;..." aria-label="Data CSV"></textarea>
           <div class="modal-actions">
@@ -410,17 +369,13 @@
     <!-- ==================== PANEL: LAPORAN ==================== -->
     <section id="panel-report" class="panel" aria-label="Panel Laporan">
       <div class="report-header">
-        <h2 class="section-title">
-          <svg class="icon icon-md" aria-hidden="true"><use href="#icon-file-text"/></svg>
-          Laporan Harian Stok
-        </h2>
-        <button class="btn-primary btn-icon-text" id="refreshReportBtn">
+        <button class="btn-primary" id="refreshReportBtn">
           <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-refresh-cw"/></svg>
-          Perbarui Laporan
+          Perbarui laporan
         </button>
       </div>
       <div id="reportContent">
-        <!-- Report injected by JS -->
+        <!-- Report injected by JS; includes title row with meta numbers -->
       </div>
     </section>
 
