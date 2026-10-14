@@ -205,8 +205,149 @@ function getRecommendation(item) {
 }
 
 /* ============================================================
+   4b. FEFO SALES SIMULATION
+   Detects a sales request, allocates stock FEFO, and renders a
+   preview with apply/cancel actions. Never allocates from expired.
+   ============================================================ */
+
+/** Pending previews keyed by a token (so apply/cancel can find them). */
+const pendingSales = {};
+
+/**
+ * Extract the requested quantity from normalised text.
+ * Skips integers that are part of a dosage pattern (e.g. "500 mg").
+ * @param {string} t - normalised user text
+ * @returns {number|null}
+ */
+function parseSaleQty(t) {
+  const m = t.match(/\b(\d+)\b(?!\s*(?:mg|ml|mcg|gr|gram|g|iu)\b)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/**
+ * Allocate `qty` units of an item across its batches earliest-expiry-first.
+ * Expired batches are skipped entirely and counted.
+ * @param {string} nama - matched item name
+ * @param {number} qty  - requested quantity
+ * @returns {{rows:Array, total:number, fulfilled:number, shortage:number,
+ *            usedKritis:Array, skippedExpired:Array}}
+ */
+function allocateFefo(nama, qty) {
+  const batches = stockData
+    .filter(i => i.nama.toLowerCase() === nama.toLowerCase())
+    .sort((a, b) => new Date(a.kadaluarsa) - new Date(b.kadaluarsa));
+
+  const rows = [];
+  const usedKritis = [];
+  const skippedExpired = [];
+  let remaining = qty;
+  let total = 0;
+
+  batches.forEach(b => {
+    const status = getStatus(b.kadaluarsa);
+    if (status === 'Kedaluwarsa') { skippedExpired.push(b); return; }
+    if (remaining <= 0) return;
+    const take = Math.min(remaining, b.qty);
+    if (take <= 0) return;
+    rows.push({
+      id: b.id, batch: b.batch, kadaluarsa: b.kadaluarsa, status,
+      take, sisa: b.qty - take, hargaJual: b.hargaJual, subtotal: take * b.hargaJual,
+    });
+    if (status === 'Kritis') usedKritis.push(b);
+    total += take * b.hargaJual;
+    remaining -= take;
+  });
+
+  return { rows, total, fulfilled: qty - remaining, shortage: remaining, usedKritis, skippedExpired };
+}
+
+/**
+ * Build the preview bubble HTML for a sale request (table + buttons).
+ * @returns {string}
+ */
+function buildSalePreview(nama, qty) {
+  const alloc = allocateFefo(nama, qty);
+  const token = 'sale-' + Date.now();
+
+  // Nothing sellable at all
+  if (alloc.rows.length === 0) {
+    return `<p>${icon('x-circle', 'icon-sm')} Tidak ada stok <strong>${escHtml(nama)}</strong> yang boleh dijual. ` +
+      (alloc.skippedExpired.length
+        ? `${alloc.skippedExpired.length} batch sudah kedaluwarsa dan tidak dialokasikan.`
+        : '') + `</p>`;
+  }
+
+  pendingSales[token] = { nama, qty, ...alloc };
+
+  const rows = alloc.rows.map(r => `
+    <tr>
+      <td><code>${escHtml(r.batch)}</code></td>
+      <td class="date-cell">${fmtDate(r.kadaluarsa)}</td>
+      <td>${badgeHtml(r.status)}</td>
+      <td class="num-cell">${r.take.toLocaleString('id-ID')}</td>
+      <td class="num-cell">${r.sisa.toLocaleString('id-ID')}</td>
+      <td class="num-cell">${fmtRupiah(r.subtotal)}</td>
+    </tr>`).join('');
+
+  const totalRow = `
+    <tr class="sale-total-row">
+      <td colspan="5"><strong>Total</strong></td>
+      <td class="num-cell"><strong>${fmtRupiah(alloc.total)}</strong></td>
+    </tr>`;
+
+  // Plain sentences for notes
+  let notes = '';
+  if (alloc.skippedExpired.length) {
+    const names = alloc.skippedExpired.map(b => b.batch).join(', ');
+    notes += `<p class="sale-note">${alloc.skippedExpired.length} batch kedaluwarsa dilewati: ${escHtml(names)}.</p>`;
+  }
+  if (alloc.usedKritis.length) {
+    const names = alloc.usedKritis.map(b => b.batch).join(', ');
+    notes += `<p class="sale-note">Batch berstatus Kritis yang dipakai: ${escHtml(names)}.</p>`;
+  }
+  if (alloc.shortage > 0) {
+    notes += `<p class="sale-note sale-note-warn">Stok tidak cukup. Hanya ${alloc.fulfilled} dari ${qty} yang dapat dipenuhi, kurang ${alloc.shortage}.</p>`;
+  }
+
+  return `
+    <p>Simulasi penjualan <strong>${qty} ${escHtml(nama)}</strong> (FEFO, batch paling dekat kedaluwarsa lebih dulu):</p>
+    <div class="resp-table-wrap"><table class="resp-table sale-table">
+      <thead><tr>
+        <th>Batch</th><th>Kedaluwarsa</th><th>Status</th>
+        <th>Ambil</th><th>Sisa batch</th><th>Subtotal</th>
+      </tr></thead>
+      <tbody>${rows}${totalRow}</tbody>
+    </table></div>
+    ${notes}
+    <div class="sale-actions">
+      <button class="btn-primary" data-sale-apply="${token}">Terapkan penjualan</button>
+      <button class="btn-secondary" data-sale-cancel="${token}">Batal</button>
+    </div>`;
+}
+
+/** Apply a pending sale: reduce quantities, refresh panels, confirm. */
+function applySale(token, bubble) {
+  const sale = pendingSales[token];
+  if (!sale) return;
+  sale.rows.forEach(r => {
+    const item = stockData.find(s => s.id === r.id);
+    if (item) item.qty -= r.take;
+  });
+  delete pendingSales[token];
+
+  renderStockTable(stockFilter.value);
+  renderReport();
+  updateTodayActions();
+
+  bubble.innerHTML =
+    `<p>${icon('check-circle', 'icon-sm')} Penjualan diterapkan: ${sale.fulfilled} ${escHtml(sale.nama)} ` +
+    `senilai ${fmtRupiah(sale.total)}. Stok dan laporan diperbarui.</p>`;
+}
+
+/* ============================================================
    5. STOCK TABLE RENDERING
    ============================================================ */
+
 
 const stockTableBody = document.getElementById('stockTableBody');
 const stockFilter    = document.getElementById('stockFilter');
@@ -556,6 +697,24 @@ function agentReply(userText) {
      the generic "sudah kedaluwarsa" to avoid false-positive matching on
      the shared root "kedaluwarsa".
   ================================================================ */
+
+  /* ---- INTENT: FEFO sales simulation (highest priority) ----
+     Triggers on sell verbs. Requires a quantity and a known item;
+     otherwise it asks for the quantity / lists available names. ---- */
+  if (hasWord('jual', 'keluarkan', 'simulasi', 'penjualan')) {
+    const qty = parseSaleQty(t);
+    const available = [...new Set(stockData.map(i => i.nama))];
+
+    if (!mentionedItem) {
+      return `<p>Obat tersebut tidak ditemukan dalam data stok. Berikut obat yang tersedia:</p>
+        <ul>${available.map(n => `<li>${escHtml(n)}</li>`).join('')}</ul>`;
+    }
+    if (qty === null || qty <= 0) {
+      return `<p>Berapa jumlah <strong>${escHtml(mentionedItem)}</strong> yang ingin dijual? ` +
+             `Contoh: "jual 120 ${escHtml(mentionedItem.split(' ')[0])}".</p>`;
+    }
+    return buildSalePreview(mentionedItem, qty);
+  }
 
   /* ---- INTENT: laporan / report (NOT triggered by "hari ini" alone) ---- */
   if (hasWord('laporan', 'report', 'ringkasan', 'rekap', 'summary')) {
@@ -991,6 +1150,32 @@ document.getElementById('chatSuggestions').addEventListener('click', e => {
   handleSend();
 });
 
+/* FEFO sales preview: apply / cancel (event delegation on the message log) */
+chatMessages.addEventListener('click', e => {
+  const applyBtn  = e.target.closest('[data-sale-apply]');
+  const cancelBtn = e.target.closest('[data-sale-cancel]');
+  if (!applyBtn && !cancelBtn) return;
+
+  const bubble = e.target.closest('.msg-bubble');
+  const actions = bubble.querySelector('.sale-actions');
+  actions.querySelectorAll('button').forEach(b => { b.disabled = true; });
+
+  if (applyBtn) {
+    applySale(applyBtn.dataset.saleApply, bubble);
+  } else {
+    const token = cancelBtn.dataset.saleCancel;
+    delete pendingSales[token];
+    bubble.innerHTML = `<p>Simulasi penjualan dibatalkan. Tidak ada perubahan pada stok.</p>`;
+  }
+});
+
+/* Below-1200px summary link opens the Laporan panel */
+document.getElementById('todayActionsLink').addEventListener('click', e => {
+  e.preventDefault();
+  switchPanel('report');
+  renderReport();
+});
+
 /* ============================================================
    9. PANEL NAVIGATION
    ============================================================ */
@@ -1063,13 +1248,15 @@ function importCsvData(raw) {
     alert('Tidak ada data valid yang ditemukan. Pastikan format CSV benar:\nnama,batch,YYYY-MM-DD,qty,harga_beli,harga_jual');
     return;
   }
-  stockData = stockData.concat(items);
-  renderStockTable(stockFilter.value);
-  switchPanel('stock');
-  appendMessage('agent',
-    `<p>${icon('check-circle', 'icon-sm')} Berhasil mengimpor <strong>${items.length} batch</strong> baru dari CSV. Data telah ditambahkan ke stok.</p>`
-  );
-  switchPanel('chat');
+    stockData = stockData.concat(items);
+    renderStockTable(stockFilter.value);
+    switchPanel('stock');
+    appendMessage('agent',
+      `<p>${icon('check-circle', 'icon-sm')} Berhasil mengimpor <strong>${items.length}</strong> batch baru dari CSV. Data telah ditambahkan ke stok.</p>`
+    );
+    switchPanel('chat');
+    // Update summary column after CSV import
+    updateTodayActions();
 }
 
 // File upload
@@ -1118,6 +1305,56 @@ function renderReport() {
 }
 
 document.getElementById('refreshReportBtn').addEventListener('click', renderReport);
+
+/* ============================================================
+   12b. "PERLU TINDAKAN HARI INI" SUMMARY COLUMN
+   Lists expired batches (pull from shelf) and critical batches
+   (discount or return). Re-rendered after any stock change.
+   ============================================================ */
+function updateTodayActions() {
+  const body = document.getElementById('todayActionsBody');
+  if (!body) return;
+
+  const expired = stockData
+    .filter(i => getStatus(i.kadaluarsa) === 'Kedaluwarsa')
+    .sort((a, b) => new Date(a.kadaluarsa) - new Date(b.kadaluarsa));
+
+  const critical = stockData
+    .filter(i => getStatus(i.kadaluarsa) === 'Kritis')
+    .sort((a, b) => new Date(a.kadaluarsa) - new Date(b.kadaluarsa));
+
+  /** One plain row: item, batch (monospace), remaining days. */
+  function row(item, actionText) {
+    const d = daysUntil(item.kadaluarsa);
+    const sisa = d < 0 ? `lewat ${Math.abs(d)} hari` : `sisa ${d} hari`;
+    return `<li class="today-row">
+      <span class="today-name">${escHtml(item.nama)}</span>
+      <span class="today-batch batch-code">${escHtml(item.batch)}</span>
+      <span class="today-days">${actionText} · ${sisa}</span>
+    </li>`;
+  }
+
+  const expiredHtml = expired.length
+    ? `<ul class="today-list">${expired.map(i => row(i, 'Tarik dari rak')).join('')}</ul>`
+    : `<p class="today-empty">Tidak ada batch kedaluwarsa.</p>`;
+
+  const criticalHtml = critical.length
+    ? `<ul class="today-list">${critical.map(i =>
+        row(i, daysUntil(i.kadaluarsa) < 30 ? 'Retur ke distributor' : 'Beri diskon')
+      ).join('')}</ul>`
+    : `<p class="today-empty">Tidak ada batch kritis.</p>`;
+
+  body.innerHTML = `
+    <div class="today-section">
+      <h3 class="today-heading">Tarik dari rak</h3>
+      ${expiredHtml}
+    </div>
+    <div class="today-section">
+      <h3 class="today-heading">Diskon atau retur</h3>
+      ${criticalHtml}
+    </div>`;
+}
+
 
 /* ============================================================
    13. SELF-TEST — runnable from browser console: runSelfTest()
@@ -1179,6 +1416,36 @@ function runSelfTest() {
       q:     'berapa total nilai stok saya',
       check: html => html.includes('Total nilai stok') || html.includes('total nilai'),
     },
+    // FEFO sales simulation
+    {
+      label: '"jual 120 Amoxicillin" → sale preview',
+      q:     'jual 120 Amoxicillin',
+      check: html => html.includes('Simulasi penjualan') &&
+                     html.includes('Terapkan penjualan'),
+    },
+    {
+      label: '"simulasi jual 50 paracetamol" → sale preview skips expired batch',
+      q:     'simulasi jual 50 paracetamol',
+      check: html => html.includes('Simulasi penjualan') &&
+                     html.includes('kedaluwarsa dilewati'),
+    },
+    {
+      label: '"jual Amoxicillin" (no qty) → asks for quantity',
+      q:     'jual Amoxicillin',
+      check: html => html.includes('Berapa jumlah'),
+    },
+    {
+      label: '"jual 10 ObatAjaib" (unknown) → not found + available list',
+      q:     'jual 10 ObatAjaib',
+      check: html => html.includes('tidak ditemukan') &&
+                     html.includes('Amoxicillin'),
+    },
+    // Edge-case: "dijual dulu" must still route to FEFO, not the sale intent
+    {
+      label: '"dijual dulu untuk Amoxicillin" → FEFO (not sale)',
+      q:     'Batch mana yang dijual dulu untuk Amoxicillin?',
+      check: html => html.includes('FEFO') && !html.includes('Terapkan penjualan'),
+    },
   ];
 
   let passed = 0;
@@ -1237,14 +1504,14 @@ function showGreeting() {
   const kedaluwarsa = stockData.filter(i => getStatus(i.kadaluarsa) === 'Kedaluwarsa').length;
 
   let urgentNote = '';
-  if (kedaluwarsa > 0) urgentNote += `<li><strong>${kedaluwarsa} batch sudah kedaluwarsa</strong> — perlu tindakan segera.</li>`;
-  if (kritis > 0)      urgentNote += `<li><strong>${kritis} batch berstatus kritis</strong> — kedaluwarsa dalam kurang dari 3 bulan.</li>`;
+  if (kedaluwarsa > 0) urgentNote += `\u003cli><strong>${kedaluwarsa} batch sudah kedaluwarsa</strong> — perlu tindakan segera.\u003c/li>`;
+  if (kritis > 0)      urgentNote += `\u003cli><strong>${kritis} batch berstatus kritis</strong> — kedaluwarsa dalam kurang dari 3 bulan.\u003c/li>`;
 
   appendMessage('agent', `
-    <p>Selamat datang di <strong>PharmaStock Advisor</strong>. Hari ini, <em>${today}</em>.</p>
-    ${urgentNote ? `<p>Perhatian hari ini:</p><ul>${urgentNote}</ul>` : `<p>Tidak ada peringatan mendesak hari ini.</p>`}
-    <p>Silakan ketik pertanyaan Anda atau pilih salah satu topik di bawah.</p>
-  `);
+    \u003cp\u003eSelamat datang di \u003cstrong\u003ePharmaStock Advisor\u003c/strong\u003e. Hari ini, \u003cem\u003e${today}\u003c/em\u003e.\u003c/p\u003e
+    ${urgentNote ? `\u003cul\u003e${urgentNote}\u003c/ul\u003e` : '\u003cp\u003eTidak ada peringatan mendesak hari ini.\u003c/p\u003e'}
+    \u003cp\u003eSilakan ketik pertanyaan Anda atau pilih salah satu topik di bawah.\u003c/p\u003e`);
+
 }
 
 /* "Hapus percakapan" — clear chat history and show greeting again */
@@ -1255,26 +1522,27 @@ document.getElementById('clearChatBtn').addEventListener('click', () => {
 });
 
 /* "Reset data" — restore built-in dummy stock after confirmation */
-document.getElementById('resetDataBtn').addEventListener('click', () => {
-  const confirmed = window.confirm(
-    'Reset data stok ke data bawaan?\n\n' +
-    'Semua data yang diimpor dari CSV akan dihapus dan stok akan kembali ke data demo awal.'
-  );
-  if (!confirmed) return;
+  document.getElementById('resetDataBtn').addEventListener('click', () => {
+    const confirmed = window.confirm(
+      'Reset data stok ke data bawaan?\n\n' +
+      'Semua data yang diimpor dari CSV akan dihapus dan stok akan kembali ke data demo awal.'
+    );
+    if (!confirmed) return;
 
-  // Restore the original built-in data (shallow-copy each item to avoid mutation)
-  stockData = DEFAULT_STOCK_DATA.map(item => ({ ...item }));
+    // Restore the original built-in data (shallow-copy each item to avoid mutation)
+    stockData = DEFAULT_STOCK_DATA.map(item => ({ ...item }));
 
-  // Re-render affected panels
-  renderStockTable(stockFilter.value);
-  renderReport();
+    // Re-render affected panels
+    renderStockTable(stockFilter.value);
+    renderReport();
+    updateTodayActions();
 
-  // Notify the user in the chat
-  appendMessage('agent',
-    `<p>${icon('rotate-ccw', 'icon-sm')} Data stok telah dikembalikan ke data bawaan. ` +
-    `Semua data impor CSV telah dihapus.</p>`
-  );
-});
+    // Notify the user in the chat
+    appendMessage('agent',
+      `<p>${icon('rotate-ccw', 'icon-sm')} Data stok telah dikembalikan ke data bawaan. ` +
+      `Semua data impor CSV telah dihapus.</p>`
+    );
+  });
 
 /* ============================================================
    15. INIT — run on page load
@@ -1286,6 +1554,8 @@ function init() {
 
   // Show the greeting message
   showGreeting();
+  // Initialise the summary column
+  updateTodayActions();
 }
 
 init();

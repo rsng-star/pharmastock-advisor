@@ -241,6 +241,62 @@ code, .mono {
   gap: var(--sp-3);
 }
 
+/* Chat layout: single column by default; two columns on desktop. */
+.chat-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  gap: var(--sp-5);
+}
+
+/* Below-1200px: single-line link opening the Laporan panel. */
+.today-actions-link {
+  display: block;
+  align-self: flex-start;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--c-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--c-rule);
+  padding-bottom: var(--sp-1);
+}
+.today-actions-link:hover { border-bottom-color: var(--c-ink); }
+
+/* Summary column: hidden until the desktop breakpoint. */
+.today-actions { display: none; }
+.today-actions-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--c-ink);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--c-rule);
+  margin-bottom: var(--sp-3);
+}
+.today-section { margin-bottom: var(--sp-4); }
+.today-heading {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: var(--sp-2);
+}
+.today-list { list-style: none; padding: 0; }
+.today-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--c-rule);
+}
+.today-row:last-child { border-bottom: none; }
+.today-name { font-size: var(--fs-sm); font-weight: 500; color: var(--c-ink); }
+.today-batch { font-size: var(--fs-xs); color: var(--c-muted); }
+.today-days  { font-size: var(--fs-xs); color: var(--c-muted); }
+.today-empty { font-size: var(--fs-sm); color: var(--c-muted); }
+
+
 .chat-panel-header {
   display: flex;
   align-items: center;
@@ -354,6 +410,21 @@ code, .mono {
 
 .resp-table tbody tr:last-child td { border-bottom: none; }
 /* No zebra striping per spec */
+
+/* FEFO sale preview table: extra bottom margin for notes */
+.sale-table { margin-bottom: var(--sp-2); }
+.sale-note {
+  font-size: var(--fs-sm);
+  color: var(--c-muted);
+  margin: .3rem 0;
+  line-height: 1.5;
+}
+.sale-note-warn { color: var(--c-kritis); }
+.sale-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
 
 /* Typing indicator */
 .typing-dots { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
@@ -943,6 +1014,22 @@ code, .mono {
 /* ============================================================
    14. RESPONSIVE
    ============================================================ */
+
+/* ── Desktop (≥1200px): two-column chat + summary column ── */
+@media (min-width: 1200px) {
+  .chat-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: var(--sp-6);
+  }
+  .chat-wrapper { max-width: none; }
+  .today-actions { display: block; }
+  .today-actions-link { display: none; }
+
+  /* Even chip wrapping — chips grow to fill the row, no orphan chip. */
+  .chat-suggestions .chip { flex: 1 1 auto; justify-content: center; }
+}
 
 /* ── 360px–640px ── */
 @media (max-width: 640px) {

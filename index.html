@@ -216,10 +216,12 @@
       <polyline points="20 6 9 17 4 12"/>
     </symbol>
 
-    <!-- message-x: Hapus percakapan -->
-    <symbol id="icon-message-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      <line x1="9" y1="10" x2="15" y2="10"/>
+    <!-- trash: Hapus percakapan -->
+    <symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 3 6 19 6"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      <line x1="10" y1="11" x2="10" y2="17"/>
+      <line x1="14" y1="11" x2="14" y2="17"/>
     </symbol>
 
     <!-- rotate-ccw: Reset data (restore defaults) -->
@@ -251,13 +253,19 @@
 
     <!-- ==================== PANEL: CHAT ==================== -->
     <section id="panel-chat" class="panel active" aria-label="Panel Chat">
+      <div class="chat-layout">
       <div class="chat-wrapper">
+
+        <!-- Below-1200px collapse: single-line link to the Laporan panel -->
+        <a href="#panel-report" class="today-actions-link" id="todayActionsLink">
+          Perlu tindakan hari ini
+        </a>
 
         <!-- Chat panel header: label + "Hapus percakapan" reset control -->
         <div class="chat-panel-header">
           <span class="chat-panel-title">Percakapan</span>
           <button class="btn-danger" id="clearChatBtn" aria-label="Hapus percakapan dan tampilkan salam ulang">
-            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-message-x"/></svg>
+            <svg class="icon icon-sm" aria-hidden="true"><use href="#icon-trash"/></svg>
             Hapus percakapan
           </button>
         </div>
@@ -277,6 +285,7 @@
           <button class="chip" data-q="Obat apa yang sudah kedaluwarsa?">Sudah kedaluwarsa</button>
           <button class="chip" data-q="Tampilkan semua obat berstatus Kritis">Status kritis</button>
           <button class="chip" data-q="Berapa total nilai stok saya?">Nilai stok</button>
+          <button class="chip" data-q="jual 120 Amoxicillin">Simulasi penjualan</button>
           <button class="chip" data-q="Apa rekomendasi untuk batch Waspada?">Rekomendasi</button>
         </div>
 
@@ -293,6 +302,13 @@
             <svg class="icon" aria-hidden="true"><use href="#icon-send"/></svg>
           </button>
         </div>
+      </div>
+
+      <!-- Right-hand summary column (>=1200px) -->
+      <aside class="today-actions" id="todayActions" aria-label="Perlu tindakan hari ini">
+        <h2 class="today-actions-title">Perlu tindakan hari ini</h2>
+        <div id="todayActionsBody"><!-- injected by JS --></div>
+      </aside>
       </div>
     </section>
 
